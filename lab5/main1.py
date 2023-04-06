@@ -1,11 +1,18 @@
-import pandas as pd 
-from urllib.request import urlopen
-from pgmpy.models import BayesianModel
+import pandas as pd
+import pymc4 as pm
+import tensorflow as tf
 
-names = "A,B,C,D,E,F,G,H,I,J,K,L,M,үр дүн"
-data = pd.read_csv(urlopen("https://bit.do/heart-disease"), names=names)
+# Read CSV 
+df = pd.read_csv('lab5\data.csv')
 
-model = BayesianModel([('A', 'B'), ('B', 'C'), ('C', 'D'), ('D', 'E'), ('E', 'F'),
-                       ('F', 'G'), ('G', 'H'), ('H', 'I'), ('I', 'J'), ('J', 'RESULT'), 
-                       ('K', 'үр дүн'), ('L', 'үр дүн'), ('M', 'үр дүн')])
-model.fit(data)
+# Define the model
+def model():
+    beta = yield pm.Normal('beta', loc=0, scale=10, sample_shape=df.shape[1]-1)
+    sigma = yield pm.HalfCauchy('sigma', beta=10)
+    y = yield pm.Normal('y', loc=pm.math.dot(df.iloc[:, :-1].values, beta), scale=sigma, observed=df.iloc[:, -1].values)
+
+# Compile the model
+compiled_model = pm.compile_model(model)
+
+# Sample from the model
+trace = compiled_model().sample(1000, num_chains=4, burn_in=1000)
